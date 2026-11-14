@@ -2,6 +2,16 @@
 
 Módulo NixOS independente para executar [Backspace](https://github.com/thezwiss/backspace) e LiveKit com Podman, Nginx e certificados ACME. O módulo é público; o aplicativo Backspace é distribuído pelo upstream sob AGPL-3.0. Nenhuma configuração deste projeto ativa o sistema: o administrador importa o módulo e decide quando reconstruir e aplicar.
 
+## Cliente desktop
+
+Execute o cliente oficial para Linux x86_64 diretamente com Nix:
+
+```sh
+nix run github:daviaaze/backspace-nix#backspace
+```
+
+Sem endereço salvo, o cliente abre o seletor de instância: informe ali o endereço HTTPS do servidor Backspace (por exemplo, `https://chat.seu-dominio.example`). Depois, use **Change Instance** no cliente para trocar de servidor. Opcionalmente, `BACKSPACE_URL` pode definir o endereço ao iniciar; nesse caso tem prioridade sobre a instância salva e o seletor. Esse pacote instala somente o cliente desktop; não ativa nem configura um servidor. O AppImage upstream está fixado na versão `1.11.0` com hash SHA-256.
+
 ## Requisitos
 
 - NixOS x86_64-linux com flakes habilitados e `virtualisation.podman.enable = true`.
