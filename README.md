@@ -12,6 +12,10 @@ nix run github:daviaaze/backspace-nix#backspace
 
 Sem endereço salvo, o cliente abre o seletor de instância: informe o endereço HTTPS do servidor Backspace. Use **Change Instance** para trocar de servidor. `BACKSPACE_URL` pode definir o endereço ao iniciar. O pacote é uma variante comunitária do Backspace `1.11.0`, com alterações locais de áudio; não ativa nem configura um servidor.
 
+A instalação do pacote pelo NixOS/Home Manager também inclui o atalho
+**Backspace**, ícone e suporte a links `backspace://` no menu de aplicativos.
+`nix run` apenas executa o cliente; não instala esse atalho no perfil.
+
 ### Compartilhar áudio no Linux/PipeWire
 
 1. Entre na chamada e habilite **System audio** nas opções de compartilhamento.

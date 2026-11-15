@@ -35,15 +35,36 @@ let
       ${pkgs.nodejs}/bin/node ${./desktop/repack.cjs} --pack "$TMPDIR/app" "$out/resources/app.asar"
     '';
   };
+  desktopItem = pkgs.makeDesktopItem {
+    name = "backspace";
+    desktopName = "Backspace";
+    comment = "Chat, voice, video and screen sharing";
+    exec = "backspace %U";
+    icon = "backspace";
+    terminal = false;
+    startupNotify = true;
+    startupWMClass = "io.github.TheZwiss.backspace";
+    categories = [ "Network" "InstantMessaging" ];
+    mimeTypes = [ "x-scheme-handler/backspace" ];
+  };
 in
 pkgs.appimageTools.wrapAppImage {
   pname = "backspace";
-  version = "${version}-audio9";
+  version = "${version}-audio10";
   src = extracted;
   # Chromium dlopen()s libva for VA-API. The generic AppImage FHS profile has
   # libdrm/libgbm but not libva; the host provides radeonsi_drv_video.so under
   # /run/opengl-driver/lib/dri.
   extraPkgs = pkgs': [ pkgs'.libva ];
+  extraInstallCommands = ''
+    install -Dm444 ${desktopItem}/share/applications/backspace.desktop \
+      "$out/share/applications/backspace.desktop"
+    substituteInPlace "$out/share/applications/backspace.desktop" \
+      --replace-fail 'Exec=backspace %U' "Exec=$out/bin/backspace %U"
+    install -Dm444 ${extracted}/Backspace.png "$out/share/pixmaps/backspace.png"
+    ${pkgs.desktop-file-utils}/bin/desktop-file-validate \
+      "$out/share/applications/backspace.desktop"
+  '';
   passthru = { inherit source; };
   meta = {
     description = "Backspace desktop client with PipeWire playback source selection";
