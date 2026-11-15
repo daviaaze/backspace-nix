@@ -29,13 +29,16 @@ let
         --platform=node --format=cjs --target=node22 \
         --tsconfig=${source}/packages/desktop/tsconfig.json --outdir="$TMPDIR/app/dist"
       cp ${source}/packages/desktop/resources/audio-source-picker.html "$TMPDIR/app/resources/"
+      mkdir -p "$TMPDIR/app/resources/fonts"
+      cp ${source}/packages/web/public/fonts/DMSans-Variable.woff2 \
+        ${source}/packages/web/public/fonts/OFL.txt "$TMPDIR/app/resources/fonts/"
       ${pkgs.nodejs}/bin/node ${./desktop/repack.cjs} --pack "$TMPDIR/app" "$out/resources/app.asar"
     '';
   };
 in
 pkgs.appimageTools.wrapAppImage {
   pname = "backspace";
-  version = "${version}-audio1";
+  version = "${version}-audio2";
   src = extracted;
   passthru = { inherit source; };
   meta = {

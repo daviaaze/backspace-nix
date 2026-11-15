@@ -20,6 +20,14 @@ Sem endereço salvo, o cliente abre o seletor de instância: informe o endereço
 
 Comece a reprodução antes de abrir o seletor; **Atualizar** recarrega a lista preservando as marcações disponíveis. Os streams aparecem por aplicativo e nome da reprodução. A seleção vale para os streams atuais, não para todo aplicativo futuro: se o programa reiniciar sua reprodução, pare e selecione novamente. Não há alteração de seleção ao vivo.
 
+O seletor segue o visual Aether Drift do Backspace: paleta escura, acento violeta,
+cards selecionáveis e fonte DM Sans incluída localmente, sem download de fontes.
+A janela é um modal compacto sem moldura do sistema, centralizado sobre o cliente;
+a lista rola sem esconder os botões. **Esc**, o botão fechar e **Cancelar** encerram
+a escolha sem compartilhar áudio. Atualizações desse visual exigem apenas sair do
+cliente pela bandeja e executar `nix run --refresh github:daviaaze/backspace-nix#backspace`,
+sem rebuild do servidor.
+
 A captura aceita reprodução em saídas não padrão e saídas virtuais (por exemplo, roteamento de áudio por efeitos), sem mudar a saída ou o microfone padrão. Os processos do próprio Backspace ficam excluídos. Cancelamento ou falha após selecionar fontes não autoriza fallback para o áudio inteiro do desktop. Áudio de chamadas reproduzido por **outros** aplicativos só fica fora se você não os selecionar.
 
 Verificado: tipos TypeScript, 19 testes de roteamento, build Nix, janela real Electron e captura real do Chromium com dois tons sintéticos em uma saída virtual não padrão. O stream não selecionado ficou mais de 60 dB abaixo do selecionado. Não foi validada uma chamada LiveKit entre dois computadores; uma tentativa WebRTC local não estabeleceu recepção, portanto não é prova de chamada completa.

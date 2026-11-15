@@ -1,54 +1,320 @@
 diff --git a/packages/desktop/resources/audio-source-picker.html b/packages/desktop/resources/audio-source-picker.html
 new file mode 100644
-index 0000000..81bd935
+index 0000000..2ea8b29
 --- /dev/null
 +++ b/packages/desktop/resources/audio-source-picker.html
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,379 @@
 +<!doctype html>
 +<html lang="pt-BR">
 +<head>
 +  <meta charset="UTF-8">
 +  <meta name="viewport" content="width=device-width, initial-scale=1">
 +  <title>Compartilhar áudio</title>
-+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
++  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self';">
 +  <style>
-+    :root { color-scheme: light dark; font: 14px system-ui, sans-serif; }
-+    body { margin: 0; padding: 24px; }
-+    h1 { margin: 0 0 6px; font-size: 20px; }
-+    p { margin: 0 0 16px; opacity: .75; }
-+    #sources { max-height: 310px; overflow: auto; }
-+    .source { display: flex; gap: 10px; padding: 11px 8px; border-bottom: 1px solid #8884; cursor: pointer; }
-+    .source input { margin: 2px 0 0; }
-+    .details { min-width: 0; }
++    @font-face {
++      font-family: 'DM Sans';
++      src: url('./fonts/DMSans-Variable.woff2') format('woff2');
++      font-weight: 100 900;
++      font-style: normal;
++      font-display: swap;
++    }
++    :root {
++      color-scheme: dark;
++      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
++      font-synthesis: none;
++      --bg-base: 11 11 16;
++      --bg-chat: 19 19 26;
++      --bg-channel: 26 26 35;
++      --bg-elevated: 37 37 48;
++      --bg-input: 17 17 24;
++      --border-soft: 42 42 54;
++      --accent-primary: 124 108 246;
++      --accent-primary-hover: 107 92 224;
++      --accent-primary-active: 95 79 208;
++      --text-primary: 239 239 239;
++      --text-secondary: 160 160 170;
++      --text-tertiary: 92 92 104;
++      --glass-border: rgba(255, 255, 255, .07);
++      --glass-highlight: rgba(255, 255, 255, .05);
++    }
++    * { box-sizing: border-box; }
++    html, body { width: 100%; height: 100%; min-width: 0; min-height: 0; }
++    body {
++      margin: 0;
++      display: flex;
++      flex-direction: column;
++      overflow: hidden;
++      background: rgb(var(--bg-base));
++      color: rgb(var(--text-primary));
++      font-size: 14px;
++      -webkit-font-smoothing: antialiased;
++    }
++    button { font: inherit; color: inherit; }
++    .header {
++      flex: 0 0 auto;
++      display: flex;
++      align-items: center;
++      gap: 14px;
++      padding: 22px 24px 18px;
++      border-bottom: 1px solid var(--glass-border);
++      -webkit-app-region: drag;
++    }
++    .audio-badge {
++      width: 42px;
++      height: 42px;
++      flex: 0 0 42px;
++      display: grid;
++      place-items: center;
++      border: 1px solid rgb(var(--accent-primary) / .32);
++      border-radius: 12px;
++      color: rgb(var(--accent-primary));
++      background: rgb(var(--accent-primary) / .13);
++    }
++    .heading { min-width: 0; flex: 1; }
++    h1 { margin: 0; font-size: 17px; line-height: 1.35; font-weight: 650; letter-spacing: -.2px; }
++    .subtitle { margin: 3px 0 0; color: rgb(var(--text-secondary)); font-size: 12px; line-height: 1.45; }
++    .icon-button {
++      width: 32px;
++      height: 32px;
++      flex: 0 0 32px;
++      display: grid;
++      place-items: center;
++      padding: 0;
++      border: 1px solid transparent;
++      border-radius: 9px;
++      background: transparent;
++      color: rgb(var(--text-secondary));
++      cursor: pointer;
++      -webkit-app-region: no-drag;
++      transition: color .15s, background .15s, border-color .15s;
++    }
++    .icon-button:hover { color: rgb(var(--text-primary)); background: rgb(255 255 255 / .06); border-color: var(--glass-border); }
++    .icon-button:focus-visible, button:focus-visible, input:focus-visible ~ .checkmark {
++      outline: 2px solid rgb(var(--accent-primary));
++      outline-offset: 2px;
++    }
++    .list-heading {
++      flex: 0 0 auto;
++      display: flex;
++      align-items: center;
++      justify-content: space-between;
++      gap: 12px;
++      padding: 16px 24px 10px;
++    }
++    .section-title { color: rgb(var(--text-secondary)); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
++    .text-button {
++      min-height: 30px;
++      display: inline-flex;
++      align-items: center;
++      justify-content: center;
++      gap: 7px;
++      padding: 5px 9px;
++      border: 1px solid transparent;
++      border-radius: 8px;
++      background: transparent;
++      color: rgb(var(--text-secondary));
++      font-size: 12px;
++      font-weight: 600;
++      cursor: pointer;
++      transition: background .15s, color .15s, border-color .15s;
++    }
++    .text-button:hover:not(:disabled) { color: rgb(var(--text-primary)); background: rgb(255 255 255 / .06); border-color: var(--glass-border); }
++    .text-button:active:not(:disabled) { background: rgb(255 255 255 / .1); }
++    button:disabled { opacity: .45; cursor: not-allowed; }
++    #sources {
++      flex: 1 1 auto;
++      min-height: 0;
++      overflow: auto;
++      overscroll-behavior: contain;
++      padding: 2px 24px 16px;
++      scrollbar-color: rgb(var(--border-soft)) transparent;
++    }
++    .source {
++      position: relative;
++      display: flex;
++      align-items: center;
++      gap: 13px;
++      min-height: 66px;
++      margin: 0 0 8px;
++      padding: 11px 14px;
++      border: 1px solid rgb(var(--border-soft) / .7);
++      border-radius: 11px;
++      background: rgb(var(--bg-chat));
++      cursor: pointer;
++      transition: background .15s, border-color .15s, box-shadow .15s;
++    }
++    .source:hover { border-color: rgb(255 255 255 / .2); background: rgb(var(--bg-elevated) / .7); }
++    .source:focus-within { outline: 2px solid rgb(var(--accent-primary)); outline-offset: 2px; }
++    .source:has(input:checked) {
++      border-color: rgb(var(--accent-primary) / .75);
++      background: rgb(var(--accent-primary) / .1);
++      box-shadow: inset 0 0 0 1px rgb(var(--accent-primary) / .12);
++    }
++    .source input {
++      position: absolute;
++      width: 1px;
++      height: 1px;
++      opacity: 0;
++      pointer-events: none;
++    }
++    .source-icon {
++      width: 36px;
++      height: 36px;
++      flex: 0 0 36px;
++      display: grid;
++      place-items: center;
++      border: 1px solid var(--glass-border);
++      border-radius: 10px;
++      background: rgb(var(--bg-input));
++      color: rgb(var(--text-secondary));
++    }
++    .source:has(input:checked) .source-icon { color: rgb(var(--accent-primary)); border-color: rgb(var(--accent-primary) / .24); }
++    .details { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
 +    .name, .application { overflow-wrap: anywhere; }
-+    .application { opacity: .7; font-size: 12px; }
-+    #empty { padding: 18px 8px; opacity: .75; }
-+    footer { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 20px; }
-+    button { padding: 8px 12px; }
++    .name { font-size: 13px; font-weight: 600; line-height: 1.3; }
++    .application { color: rgb(var(--text-secondary)); font-size: 11px; line-height: 1.35; }
++    .checkmark {
++      width: 19px;
++      height: 19px;
++      flex: 0 0 19px;
++      display: grid;
++      place-items: center;
++      border: 1px solid rgb(var(--text-tertiary));
++      border-radius: 6px;
++      color: transparent;
++      background: rgb(var(--bg-input));
++      transition: background .15s, border-color .15s, color .15s;
++    }
++    .source:has(input:checked) .checkmark { background: rgb(var(--accent-primary)); border-color: rgb(var(--accent-primary)); color: white; }
++    #empty {
++      margin: 0 24px 16px;
++      padding: 22px 18px;
++      border: 1px dashed rgb(var(--border-soft));
++      border-radius: 11px;
++      background: rgb(var(--bg-chat));
++      color: rgb(var(--text-secondary));
++      font-size: 12px;
++      line-height: 1.55;
++      text-align: center;
++    }
++    footer {
++      flex: 0 0 auto;
++      display: flex;
++      align-items: center;
++      gap: 10px;
++      min-height: 78px;
++      padding: 14px 24px;
++      border-top: 1px solid var(--glass-border);
++      background: rgb(var(--bg-chat));
++    }
++    .selection-status { min-width: 0; flex: 1; color: rgb(var(--text-secondary)); font-size: 12px; }
++    .selection-status strong { color: rgb(var(--text-primary)); font-weight: 600; }
++    .footer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
++    .footer-actions .primary { min-width: 176px; }
++    @media (max-height: 520px) {
++      .header { padding-top: 12px; padding-bottom: 12px; }
++      .audio-badge { width: 36px; height: 36px; flex-basis: 36px; }
++      .list-heading { padding-top: 10px; }
++      footer { min-height: 68px; padding-top: 9px; padding-bottom: 9px; }
++    }
++    .action-button {
++      min-height: 36px;
++      display: inline-flex;
++      align-items: center;
++      justify-content: center;
++      gap: 8px;
++      padding: 8px 12px;
++      border: 1px solid rgb(var(--border-soft));
++      border-radius: 9px;
++      background: rgb(var(--bg-elevated) / .72);
++      color: rgb(var(--text-primary));
++      font-size: 12px;
++      font-weight: 650;
++      white-space: nowrap;
++      cursor: pointer;
++      transition: background .15s, border-color .15s, transform .12s;
++    }
++    .action-button:hover:not(:disabled) { border-color: rgb(255 255 255 / .2); background: rgb(var(--bg-elevated)); }
++    .action-button:active:not(:disabled) { transform: translateY(1px); }
++    .action-button.primary { border-color: rgb(var(--accent-primary)); background: rgb(var(--accent-primary)); color: white; }
++    .action-button.primary:hover:not(:disabled) { border-color: rgb(var(--accent-primary-hover)); background: rgb(var(--accent-primary-hover)); }
++    .action-button.primary:active:not(:disabled) { border-color: rgb(var(--accent-primary-active)); background: rgb(var(--accent-primary-active)); }
++    [hidden] { display: none !important; }
++    @media (max-width: 540px) {
++      .header { padding: 16px; }
++      .list-heading { padding: 12px 16px 8px; }
++      #sources { padding-right: 16px; padding-left: 16px; }
++      #empty { margin-right: 16px; margin-left: 16px; }
++      footer { align-items: stretch; flex-direction: column; flex-wrap: nowrap; gap: 10px; padding: 11px 16px; }
++      .selection-status { flex: 0 0 auto; }
++      .footer-actions { width: 100%; min-width: 0; flex-wrap: wrap; }
++      .footer-actions .primary { flex: 1 1 100%; min-width: 0; }
++      .footer-actions .action-button:not(.primary) { flex: 1 1 0; min-width: 0; white-space: normal; }
++    }
 +  </style>
 +</head>
 +<body>
-+  <h1>Compartilhar áudio</h1>
-+  <p>Escolha os aplicativos cujo áudio deseja compartilhar.</p>
++  <header class="header">
++    <div class="audio-badge" aria-hidden="true">
++      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
++    </div>
++    <div class="heading">
++      <h1>Compartilhar áudio</h1>
++      <p class="subtitle">Escolha os aplicativos cujo áudio deseja compartilhar.</p>
++    </div>
++    <button class="icon-button" id="cancel" type="button" aria-label="Fechar" title="Fechar">
++      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12"/></svg>
++    </button>
++  </header>
++  <div class="list-heading">
++    <span class="section-title">Fontes de áudio</span>
++    <button class="text-button" id="refresh" type="button">
++      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5"/><path d="M4.5 9a8 8 0 0 1 13.2-3L20 12M4 17v-5h5"/><path d="M19.5 15a8 8 0 0 1-13.2 3L4 12"/></svg>
++      Atualizar
++    </button>
++  </div>
 +  <div id="sources" aria-live="polite"></div>
-+  <div id="empty" hidden>Nenhum aplicativo reproduzindo áudio. Comece a reprodução e clique em Atualizar.</div>
++  <div id="empty" hidden></div>
 +  <footer>
-+    <button id="refresh" type="button">Atualizar</button>
-+    <button id="selected" type="button">Compartilhar selecionados</button>
-+    <button id="all" type="button">Todo áudio (menos Backspace)</button>
-+    <button id="cancel" type="button">Cancelar</button>
++    <div class="selection-status" id="status" aria-live="polite">Nenhuma fonte selecionada</div>
++    <div class="footer-actions">
++      <button class="action-button primary" id="selected" type="button" disabled>
++        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 9.5 17 19 7.5"/></svg>
++        Compartilhar selecionados
++      </button>
++      <button class="action-button" id="all" type="button">Todo áudio (menos Backspace)</button>
++      <button class="action-button" id="cancel-footer" type="button">Cancelar</button>
++    </div>
 +  </footer>
 +  <script>
 +    const api = window.audioSourcePicker;
 +    const sourcesEl = document.getElementById('sources');
 +    const emptyEl = document.getElementById('empty');
 +    const selectedButton = document.getElementById('selected');
++    const refreshButton = document.getElementById('refresh');
++    const allButton = document.getElementById('all');
++    const statusEl = document.getElementById('status');
 +    let busy = false;
++
++    function updateSelectionState() {
++      const count = sourcesEl.querySelectorAll('input:checked').length;
++      selectedButton.disabled = busy || count === 0;
++      allButton.disabled = busy;
++      refreshButton.disabled = busy;
++      statusEl.textContent = count
++        ? `${count} fonte${count === 1 ? '' : 's'} selecionada${count === 1 ? '' : 's'}`
++        : 'Nenhuma fonte selecionada';
++    }
 +
 +    async function refresh() {
 +      if (busy) return;
 +      const previous = new Set([...sourcesEl.querySelectorAll('input:checked')].map((input) => input.value));
 +      sourcesEl.replaceChildren();
++      emptyEl.hidden = true;
++      emptyEl.textContent = 'Carregando fontes de áudio…';
++      emptyEl.hidden = false;
++      updateSelectionState();
 +      try {
 +        const sources = await api.list();
 +        emptyEl.hidden = sources.length !== 0;
@@ -60,53 +326,70 @@ index 0000000..81bd935
 +          checkbox.type = 'checkbox';
 +          checkbox.value = source.id;
 +          checkbox.checked = previous.has(source.id);
++          checkbox.setAttribute('aria-label', source.application ? `${source.name} — ${source.application}` : source.name);
++          const icon = document.createElement('span');
++          icon.className = 'source-icon';
++          icon.setAttribute('aria-hidden', 'true');
++          icon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h.01M11 8h.01M15 8h.01M19 8h.01M7 12h.01M11 12h.01M15 12h.01M19 12h.01M7 16h.01M11 16h.01M15 16h.01M19 16h.01"/></svg>';
 +          const details = document.createElement('span');
 +          details.className = 'details';
 +          const name = document.createElement('span');
 +          name.className = 'name';
 +          name.textContent = source.name;
-+          const application = document.createElement('span');
-+          application.className = 'application';
-+          application.textContent = source.application;
-+          details.append(name, document.createElement('br'), application);
-+          label.append(checkbox, details);
++          details.append(name);
++          if (source.application) {
++            const application = document.createElement('span');
++            application.className = 'application';
++            application.textContent = source.application;
++            details.append(application);
++          }
++          const checkmark = document.createElement('span');
++          checkmark.className = 'checkmark';
++          checkmark.setAttribute('aria-hidden', 'true');
++          checkmark.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>';
++          label.append(checkbox, icon, details, checkmark);
 +          sourcesEl.append(label);
 +        }
-+        emptyEl.hidden = sources.length !== 0;
 +      } catch {
 +        emptyEl.hidden = false;
 +        emptyEl.textContent = 'Não foi possível carregar os aplicativos. Tente Atualizar.';
 +      }
-+      selectedButton.disabled = sourcesEl.querySelectorAll('input:checked').length === 0;
++      updateSelectionState();
 +    }
 +
-+    sourcesEl.addEventListener('change', () => {
-+      selectedButton.disabled = sourcesEl.querySelectorAll('input:checked').length === 0;
-+    });
-+    document.getElementById('refresh').addEventListener('click', refresh);
++    sourcesEl.addEventListener('change', updateSelectionState);
++    refreshButton.addEventListener('click', refresh);
 +    selectedButton.addEventListener('click', async () => {
 +      const sourceIds = [...sourcesEl.querySelectorAll('input:checked')].map((input) => input.value);
-+      if (sourceIds.length) {
++      if (sourceIds.length && !busy) {
 +        busy = true;
++        updateSelectionState();
 +        await api.select(sourceIds);
 +      }
 +    });
-+    document.getElementById('all').addEventListener('click', async () => {
++    allButton.addEventListener('click', async () => {
++      if (busy) return;
 +      busy = true;
++      updateSelectionState();
 +      await api.all();
 +    });
-+    document.getElementById('cancel').addEventListener('click', () => api.cancel());
++    function cancel() { if (!busy) api.cancel(); }
++    document.getElementById('cancel').addEventListener('click', cancel);
++    document.getElementById('cancel-footer').addEventListener('click', cancel);
++    document.addEventListener('keydown', (event) => {
++      if (event.key === 'Escape') cancel();
++    });
 +    refresh();
 +  </script>
 +</body>
 +</html>
 diff --git a/packages/desktop/src/audioSourcePicker.ts b/packages/desktop/src/audioSourcePicker.ts
 new file mode 100644
-index 0000000..79e7004
+index 0000000..a2ecd39
 --- /dev/null
 +++ b/packages/desktop/src/audioSourcePicker.ts
-@@ -0,0 +1,82 @@
-+import { BrowserWindow, ipcMain } from 'electron';
+@@ -0,0 +1,93 @@
++import { BrowserWindow, ipcMain, screen } from 'electron';
 +import path from 'path';
 +import type { AudioSelection, AudioSource } from './systemAudio';
 +
@@ -123,11 +406,22 @@ index 0000000..79e7004
 +    activePicker?.focus();
 +    return pending;
 +  }
++  const parentBounds = parentWindow.getBounds();
++  const workArea = screen.getDisplayMatching(parentBounds).workArea;
++  const width = Math.min(640, workArea.width - 32);
++  const height = Math.min(600, workArea.height - 32);
 +  const picker = new BrowserWindow({
-+    width: 480,
-+    height: 560,
-+    minWidth: 380,
-+    minHeight: 420,
++    width,
++    height,
++    x: Math.round(Math.max(workArea.x, Math.min(parentBounds.x + (parentBounds.width - width) / 2, workArea.x + workArea.width - width))),
++    y: Math.round(Math.max(workArea.y, Math.min(parentBounds.y + (parentBounds.height - height) / 2, workArea.y + workArea.height - height))),
++    frame: false,
++    resizable: false,
++    minimizable: false,
++    maximizable: false,
++    fullscreenable: false,
++    skipTaskbar: true,
++    backgroundColor: '#13131a',
 +    parent: parentWindow,
 +    modal: true,
 +    show: false,
