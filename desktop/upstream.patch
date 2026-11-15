@@ -1,0 +1,540 @@
+diff --git a/packages/desktop/resources/audio-source-picker.html b/packages/desktop/resources/audio-source-picker.html
+new file mode 100644
+index 0000000..81bd935
+--- /dev/null
++++ b/packages/desktop/resources/audio-source-picker.html
+@@ -0,0 +1,96 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Compartilhar áudio</title>
++  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
++  <style>
++    :root { color-scheme: light dark; font: 14px system-ui, sans-serif; }
++    body { margin: 0; padding: 24px; }
++    h1 { margin: 0 0 6px; font-size: 20px; }
++    p { margin: 0 0 16px; opacity: .75; }
++    #sources { max-height: 310px; overflow: auto; }
++    .source { display: flex; gap: 10px; padding: 11px 8px; border-bottom: 1px solid #8884; cursor: pointer; }
++    .source input { margin: 2px 0 0; }
++    .details { min-width: 0; }
++    .name, .application { overflow-wrap: anywhere; }
++    .application { opacity: .7; font-size: 12px; }
++    #empty { padding: 18px 8px; opacity: .75; }
++    footer { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 20px; }
++    button { padding: 8px 12px; }
++  </style>
++</head>
++<body>
++  <h1>Compartilhar áudio</h1>
++  <p>Escolha os aplicativos cujo áudio deseja compartilhar.</p>
++  <div id="sources" aria-live="polite"></div>
++  <div id="empty" hidden>Nenhum aplicativo reproduzindo áudio. Comece a reprodução e clique em Atualizar.</div>
++  <footer>
++    <button id="refresh" type="button">Atualizar</button>
++    <button id="selected" type="button">Compartilhar selecionados</button>
++    <button id="all" type="button">Todo áudio (menos Backspace)</button>
++    <button id="cancel" type="button">Cancelar</button>
++  </footer>
++  <script>
++    const api = window.audioSourcePicker;
++    const sourcesEl = document.getElementById('sources');
++    const emptyEl = document.getElementById('empty');
++    const selectedButton = document.getElementById('selected');
++    let busy = false;
++
++    async function refresh() {
++      if (busy) return;
++      const previous = new Set([...sourcesEl.querySelectorAll('input:checked')].map((input) => input.value));
++      sourcesEl.replaceChildren();
++      try {
++        const sources = await api.list();
++        emptyEl.hidden = sources.length !== 0;
++        emptyEl.textContent = sources.length ? '' : 'Nenhum aplicativo reproduzindo áudio. Comece a reprodução e clique em Atualizar.';
++        for (const source of sources) {
++          const label = document.createElement('label');
++          label.className = 'source';
++          const checkbox = document.createElement('input');
++          checkbox.type = 'checkbox';
++          checkbox.value = source.id;
++          checkbox.checked = previous.has(source.id);
++          const details = document.createElement('span');
++          details.className = 'details';
++          const name = document.createElement('span');
++          name.className = 'name';
++          name.textContent = source.name;
++          const application = document.createElement('span');
++          application.className = 'application';
++          application.textContent = source.application;
++          details.append(name, document.createElement('br'), application);
++          label.append(checkbox, details);
++          sourcesEl.append(label);
++        }
++        emptyEl.hidden = sources.length !== 0;
++      } catch {
++        emptyEl.hidden = false;
++        emptyEl.textContent = 'Não foi possível carregar os aplicativos. Tente Atualizar.';
++      }
++      selectedButton.disabled = sourcesEl.querySelectorAll('input:checked').length === 0;
++    }
++
++    sourcesEl.addEventListener('change', () => {
++      selectedButton.disabled = sourcesEl.querySelectorAll('input:checked').length === 0;
++    });
++    document.getElementById('refresh').addEventListener('click', refresh);
++    selectedButton.addEventListener('click', async () => {
++      const sourceIds = [...sourcesEl.querySelectorAll('input:checked')].map((input) => input.value);
++      if (sourceIds.length) {
++        busy = true;
++        await api.select(sourceIds);
++      }
++    });
++    document.getElementById('all').addEventListener('click', async () => {
++      busy = true;
++      await api.all();
++    });
++    document.getElementById('cancel').addEventListener('click', () => api.cancel());
++    refresh();
++  </script>
++</body>
++</html>
+diff --git a/packages/desktop/src/audioSourcePicker.ts b/packages/desktop/src/audioSourcePicker.ts
+new file mode 100644
+index 0000000..79e7004
+--- /dev/null
++++ b/packages/desktop/src/audioSourcePicker.ts
+@@ -0,0 +1,82 @@
++import { BrowserWindow, ipcMain } from 'electron';
++import path from 'path';
++import type { AudioSelection, AudioSource } from './systemAudio';
++
++const CHANNEL = 'audio-source-picker';
++let pending: Promise<AudioSelection | null> | null = null;
++let activePicker: BrowserWindow | null = null;
++
++export function chooseAudioSources(
++  parentWindow: BrowserWindow,
++  listSources: () => Array<AudioSource>,
++): Promise<AudioSelection | null> {
++  if (pending) {
++    activePicker?.show();
++    activePicker?.focus();
++    return pending;
++  }
++  const picker = new BrowserWindow({
++    width: 480,
++    height: 560,
++    minWidth: 380,
++    minHeight: 420,
++    parent: parentWindow,
++    modal: true,
++    show: false,
++    title: 'Compartilhar áudio',
++    webPreferences: {
++      preload: path.join(__dirname, 'audioSourcePickerPreload.js'),
++      contextIsolation: true,
++      sandbox: true,
++      nodeIntegration: false,
++    },
++  });
++
++  let resolveSelection!: (selection: AudioSelection | null) => void;
++  const promise = new Promise<AudioSelection | null>((resolve) => { resolveSelection = resolve; });
++  pending = promise;
++  activePicker = picker;
++  let settled = false;
++  const finish = (result: AudioSelection | null) => {
++    if (settled) return;
++    settled = true;
++    pending = null;
++    activePicker = null;
++    ipcMain.removeHandler(`${CHANNEL}:list`);
++    ipcMain.removeHandler(`${CHANNEL}:select`);
++    ipcMain.removeHandler(`${CHANNEL}:all`);
++    ipcMain.removeHandler(`${CHANNEL}:cancel`);
++    if (!picker.isDestroyed()) picker.close();
++    resolveSelection(result);
++  };
++  const validSender = (event: Electron.IpcMainInvokeEvent) => event.sender === picker.webContents;
++
++  ipcMain.handle(`${CHANNEL}:list`, (event) => {
++    if (!validSender(event)) throw new Error('Invalid audio picker sender');
++    return listSources();
++  });
++  ipcMain.handle(`${CHANNEL}:select`, (event, sourceIds: unknown) => {
++    if (!validSender(event)) throw new Error('Invalid audio picker sender');
++    if (!Array.isArray(sourceIds) || !sourceIds.every((id) => typeof id === 'string')) return;
++    finish({ mode: 'selected', sourceIds });
++  });
++  ipcMain.handle(`${CHANNEL}:all`, (event) => {
++    if (!validSender(event)) throw new Error('Invalid audio picker sender');
++    finish({ mode: 'all' });
++  });
++  ipcMain.handle(`${CHANNEL}:cancel`, (event) => {
++    if (!validSender(event)) throw new Error('Invalid audio picker sender');
++    finish(null);
++  });
++  picker.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
++  picker.webContents.on('will-navigate', (event, url) => {
++    if (url !== `file://${path.join(__dirname, '..', 'resources', 'audio-source-picker.html')}`) event.preventDefault();
++  });
++  picker.on('closed', () => finish(null));
++  void picker.loadFile(path.join(__dirname, '..', 'resources', 'audio-source-picker.html')).then(
++    () => undefined,
++    () => finish(null),
++  );
++  picker.once('ready-to-show', () => picker.show());
++  return promise;
++}
+diff --git a/packages/desktop/src/audioSourcePickerPreload.ts b/packages/desktop/src/audioSourcePickerPreload.ts
+new file mode 100644
+index 0000000..c0a33cd
+--- /dev/null
++++ b/packages/desktop/src/audioSourcePickerPreload.ts
+@@ -0,0 +1,10 @@
++import { contextBridge, ipcRenderer } from 'electron';
++
++const channel = 'audio-source-picker';
++
++contextBridge.exposeInMainWorld('audioSourcePicker', {
++  list: () => ipcRenderer.invoke(`${channel}:list`),
++  select: (sourceIds: string[]) => ipcRenderer.invoke(`${channel}:select`, sourceIds),
++  all: () => ipcRenderer.invoke(`${channel}:all`),
++  cancel: () => ipcRenderer.invoke(`${channel}:cancel`),
++});
+diff --git a/packages/desktop/src/main.ts b/packages/desktop/src/main.ts
+index 8d8b105..b2863b0 100644
+--- a/packages/desktop/src/main.ts
++++ b/packages/desktop/src/main.ts
+@@ -27,6 +27,7 @@ import {
+ import { getUpdateCapability, isSandboxed } from './updateCapability';
+ import { ownAudioInSystemAudio } from './systemAudioCapability';
+ import { createSystemAudioController, withSystemAudioSource, type PatchBayModule } from './systemAudio';
++import { chooseAudioSources } from './audioSourcePicker';
+ import { loadDismissedVersion, setDismissedVersion } from './updateDismissal';
+ import { purgeUpdaterCache } from './updaterCache';
+ import {
+@@ -596,6 +597,9 @@ const systemAudio = createSystemAudioController({
+   isSandboxed,
+   log: (message, ...args) => console.warn('[Main:SystemAudio]', message, ...args),
+ });
++// Once Linux source selection is in use, never widen a failed/cancelled
++// selection to Chromium's whole-desktop loopback.
++let suppressSystemAudioLoopback = false;
+ /** Last enumeration, so a preselected id resolves to its DesktopCapturerSource without a second scan. */
+ let lastScreenSources: Electron.DesktopCapturerSource[] = [];
+ /** Last list handed to the renderer, and when: what a throttled or unfocused caller gets back. */
+@@ -829,9 +833,16 @@ function registerIpcHandlers(): void {
+   // The virtual source that carries every other app's playback (Linux). The
+   // renderer opens it like a microphone and calls stop when the share, or its
+   // audio, ends.
+-  ipcMain.handle('system-audio-start', (event) => {
+-    if (event.sender !== mainWindow?.webContents) return { ok: false, reason: 'unsupported-platform' };
+-    return systemAudio.start();
++  ipcMain.handle('system-audio-start', async (event) => {
++    const parent = mainWindow;
++    if (!parent || event.sender !== parent.webContents) return { ok: false, reason: 'unsupported-platform' };
++    if (!systemAudio.isAvailable()) return systemAudio.start();
++    suppressSystemAudioLoopback = true;
++    const selection = await chooseAudioSources(parent, () => systemAudio.listSources());
++    if (!selection || parent.isDestroyed() || parent !== mainWindow) {
++      return { ok: false, reason: 'cancelled' };
++    }
++    return systemAudio.start(selection);
+   });
+   ipcMain.handle('system-audio-stop', (event) => {
+     if (event.sender !== mainWindow?.webContents) return;
+@@ -1332,7 +1343,7 @@ if (!gotTheLock) {
+             return;
+           }
+           console.log('[Main:ScreenShare] Using preselected source:', pending.sourceId, 'audio:', pending.shareAudio);
+-          callback({ video: selected, ...(pending.shareAudio ? { audio: 'loopback' } : {}) });
++          callback({ video: selected, ...(pending.shareAudio && !suppressSystemAudioLoopback ? { audio: 'loopback' } : {}) });
+           return;
+         }
+ 
+@@ -1355,7 +1366,7 @@ if (!gotTheLock) {
+           // captured against the setting it thinks is in force.
+           const shareAudio = lastSystemPickerShareAudio ?? false;
+           console.log('[Main:ScreenShare] System picker returned one source:', sources[0]!.id, 'audio:', shareAudio);
+-          callback({ video: sources[0]!, ...(shareAudio ? { audio: 'loopback' } : {}) });
++          callback({ video: sources[0]!, ...(shareAudio && !suppressSystemAudioLoopback ? { audio: 'loopback' } : {}) });
+           return;
+         }
+ 
+@@ -1395,7 +1406,7 @@ if (!gotTheLock) {
+         //     `PulseaudioLoopbackForScreenShare` feature flag we enable above.
+         //     Fails on PipeWire-only systems without pulse compat — the
+         //     renderer catches that and toasts the user.
+-        callback({ video: selected, ...(shareAudio ? { audio: 'loopback' } : {}) });
++        callback({ video: selected, ...(shareAudio && !suppressSystemAudioLoopback ? { audio: 'loopback' } : {}) });
+       } catch (err) {
+         console.error('[Main:ScreenShare] Handler error:', err);
+         // @ts-ignore — deny the request without crashing
+diff --git a/packages/desktop/src/systemAudio.test.ts b/packages/desktop/src/systemAudio.test.ts
+index 10d6ee8..02f2e64 100644
+--- a/packages/desktop/src/systemAudio.test.ts
++++ b/packages/desktop/src/systemAudio.test.ts
+@@ -16,14 +16,16 @@ import {
+  * processes out of it.
+  */
+ 
+-function fakeModule(options: { pipewire?: boolean; linkResult?: boolean } = {}) {
++function fakeModule(options: { pipewire?: boolean; linkResult?: boolean; nodes?: Record<string, unknown>[] } = {}) {
+   const link = vi.fn<PatchBayLike['link']>(() => options.linkResult ?? true);
++  const list = vi.fn<PatchBayLike['list']>(() => options.nodes ?? []);
+   const unlink = vi.fn();
+   const constructed = vi.fn();
+   class PatchBay implements PatchBayLike {
+     constructor() {
+       constructed();
+     }
++    list = list;
+     link = link;
+     unlink = unlink;
+     static hasPipeWire(): boolean {
+@@ -31,11 +33,30 @@ function fakeModule(options: { pipewire?: boolean; linkResult?: boolean } = {})
+     }
+   }
+   const module: PatchBayModule = { PatchBay };
+-  return { module, link, unlink, constructed };
++  return { module, link, list, unlink, constructed };
+ }
+ 
+-function controller(overrides: Partial<SystemAudioDeps> = {}) {
+-  const fake = fakeModule();
++const stream = (serial: string, extra: Record<string, unknown> = {}) => ({
++  'media.class': 'Stream/Output/Audio',
++  'object.serial': serial,
++  'object.id': '42',
++  'application.name': 'Player',
++  'application.process.id': '5000',
++  'application.process.binary': 'player',
++  'media.name': 'Music',
++  'node.name': 'player-output',
++  ...extra,
++});
++
++function routedSerials(nodes: Record<string, unknown>[], options: Parameters<PatchBayLike['link']>[0]): unknown[] {
++  return nodes.filter((node) =>
++    options.include.some((rule) => Object.entries(rule).every(([key, value]) => node[key] === value)) &&
++    !options.exclude.some((rule) => Object.entries(rule).every(([key, value]) => node[key] === value)),
++  ).map((node) => node['object.serial']);
++}
++
++function controller(overrides: Partial<SystemAudioDeps> = {}, nodes: Record<string, unknown>[] = []) {
++  const fake = fakeModule({ nodes });
+   const deps: SystemAudioDeps = {
+     platform: 'linux',
+     loadModule: () => fake.module,
+@@ -46,6 +67,7 @@ function controller(overrides: Partial<SystemAudioDeps> = {}) {
+   return { ...fake, ctl: createSystemAudioController(deps) };
+ }
+ 
++
+ describe('buildExcludeNodes', () => {
+   it('lists every pid of the app and its binary name', () => {
+     expect(buildExcludeNodes([10, 11], '/opt/Backspace/backspace')).toEqual([
+@@ -71,21 +93,59 @@ describe('buildExcludeNodes', () => {
+ });
+ 
+ describe('createSystemAudioController', () => {
+-  it('links everything except the app and names the virtual source', () => {
+-    const { ctl, link } = controller();
+-    expect(ctl.isAvailable()).toBe(true);
++  it('lists only sanitized, stable playback stream sources and excludes this app', () => {
++    const { ctl } = controller({}, [
++      stream('stable-1', { 'media.name': '  Song\n title  ', 'application.name': '  Music\tApp ' }),
++      stream('own-pid', { 'application.process.id': '4101' }),
++      stream('own-binary', { 'application.process.binary': 'BACKSPACE' }),
++      stream('device', { 'media.class': 'Audio/Sink' }),
++      stream('no-serial', { 'object.serial': undefined, 'object.id': '42' }),
++    ]);
++    expect(ctl.listSources()).toEqual([{ id: 'stable-1', name: 'Song title', application: 'Music App', pid: '5000' }]);
++  });
++
++  it('routes playback rather than hardware inputs and keeps this app out of the mix', () => {
++    const nodes = [
++      stream('music'),
++      stream('own', { 'application.process.id': '4101' }),
++      stream('microphone', { 'media.class': 'Audio/Source' }),
++    ];
++    const { ctl, link } = controller({}, nodes);
+     expect(ctl.start()).toEqual({ ok: true, label: SYSTEM_AUDIO_SOURCE_LABEL });
+-    expect(link).toHaveBeenCalledTimes(1);
+-    expect(link).toHaveBeenCalledWith({
+-      exclude: [
+-        { 'application.process.id': '4100' },
+-        { 'application.process.id': '4101' },
+-        { 'application.process.id': '4102' },
+-        { 'application.process.binary': 'backspace' },
+-      ],
+-      only_speakers: true,
+-      ignore_devices: true,
++    expect(routedSerials(nodes, link.mock.calls[0]![0])).toEqual(['music']);
++  });
++
++  it('selected capture uses immutable serial and refuses vanished or reused object IDs', () => {
++    const native = fakeModule({ nodes: [stream('serial-a')] });
++    const ctl = createSystemAudioController({
++      platform: 'linux', loadModule: () => native.module, getPids: () => [],
++      executablePath: '/x/backspace',
++    });
++    expect(ctl.start({ mode: 'selected', sourceIds: ['serial-a'] }).ok).toBe(true);
++    expect(routedSerials([stream('serial-a'), stream('other')], native.link.mock.calls[0]![0])).toEqual(['serial-a']);
++    native.list.mockReturnValue([stream('serial-b')]);
++    expect(ctl.start({ mode: 'selected', sourceIds: ['serial-a'] })).toEqual({
++      ok: false, reason: 'no-sources-selected',
++    });
++    expect(native.link).toHaveBeenCalledTimes(1);
++  });
++  it('fails closed for an empty selected list even when streams exist', () => {
++    const { ctl, link } = controller({}, [stream('available')]);
++    expect(ctl.start({ mode: 'selected', sourceIds: [] })).toEqual({
++      ok: false, reason: 'no-sources-selected',
++    });
++    expect(link).not.toHaveBeenCalled();
++  });
++
++  it('returns an empty list and link-failed when native listing or linking throws', () => {
++    const listing = fakeModule();
++    listing.list.mockImplementation(() => { throw new Error('gone'); });
++    const listingController = createSystemAudioController({
++      platform: 'linux', loadModule: () => listing.module, getPids: () => [],
++      executablePath: '/x/app', log: () => undefined,
+     });
++    expect(listingController.listSources()).toEqual([]);
++    expect(listingController.start()).toEqual({ ok: false, reason: 'link-failed' });
+   });
+ 
+   it('is unavailable off Linux without loading the module', () => {
+@@ -133,6 +193,7 @@ describe('createSystemAudioController', () => {
+   it('treats a failing PipeWire probe as no PipeWire', () => {
+     const module: PatchBayModule = {
+       PatchBay: class {
++        list(): Record<string, unknown>[] { return []; }
+         link(): boolean {
+           return true;
+         }
+diff --git a/packages/desktop/src/systemAudio.ts b/packages/desktop/src/systemAudio.ts
+index f395f59..79fd082 100644
+--- a/packages/desktop/src/systemAudio.ts
++++ b/packages/desktop/src/systemAudio.ts
+@@ -1,5 +1,5 @@
+ /**
+- * System audio for a screen share without Backspace's own playback (#358).
++ * Playback stream selection is built from PipeWire's current node metadata.
+  *
+  * Chromium can leave the app out of a loopback capture only on Windows 11 and
+  * macOS 14.2+ (docs/systems/voice.md, "System Audio Loopback"). On Linux the
+@@ -21,23 +21,60 @@ export const SYSTEM_AUDIO_SOURCE_LABEL = 'vencord-screen-share';
+ export type NodeMatch = Record<string, string>;
+ 
+ /** The part of `@vencord/venmic`'s `PatchBay` used here. */
++export type PipeWireNode = Record<string, unknown>;
+ export interface PatchBayLike {
+-  link(data: { exclude: NodeMatch[]; only_speakers: boolean; ignore_devices: boolean }): boolean;
++  list(): PipeWireNode[];
++  link(data: { include: NodeMatch[]; exclude: NodeMatch[]; only_speakers: boolean; only_default_speakers: boolean; ignore_devices: boolean; mute: boolean }): boolean;
+   unlink(): void;
+ }
++export interface AudioSource {
++  id: string;
++  name: string;
++  application: string;
++  pid?: string;
++}
++
++export type AudioSelection = { mode: 'all' } | { mode: 'selected'; sourceIds: string[] };
++
++const PLAYBACK_CLASS = 'Stream/Output/Audio';
++
++function cleanDisplay(value: unknown): string {
++  return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim() : '';
++}
++
++function playbackNodes(nodes: PipeWireNode[], pids: readonly number[], executablePath: string): AudioSource[] {
++  const excludedPids = new Set(pids.filter((pid) => Number.isInteger(pid) && pid > 0).map(String));
++  const binary = baseName(executablePath).toLowerCase();
++  const sources: AudioSource[] = [];
++  for (const node of nodes) {
++    if (node['media.class'] !== PLAYBACK_CLASS) continue;
++    const id = cleanDisplay(node['object.serial']);
++    if (!id) continue;
++    const pid = cleanDisplay(node['application.process.id']);
++    const processBinary = cleanDisplay(node['application.process.binary']).toLowerCase();
++    if ((pid && excludedPids.has(pid)) || (binary && processBinary === binary)) continue;
++    const name = cleanDisplay(node['media.name']) || cleanDisplay(node['node.name']);
++    const application = cleanDisplay(node['application.name']);
++    if (name && application) sources.push({ id, name, application, ...(pid ? { pid } : {}) });
++  }
++  return sources;
++}
+ 
++
++ 
+ export interface PatchBayModule {
+   PatchBay: (new () => PatchBayLike) & { hasPipeWire(): boolean };
+ }
+ 
+ export type SystemAudioStart =
+   | { ok: true; label: string }
+-  | { ok: false; reason: 'unsupported-platform' | 'sandboxed' | 'module-missing' | 'no-pipewire' | 'link-failed' };
++  | { ok: false; reason: 'unsupported-platform' | 'sandboxed' | 'module-missing' | 'no-pipewire' | 'link-failed' | 'no-sources-selected' };
+ 
+ export interface SystemAudioController {
+   /** Whether `start` can work on this machine (platform, module, PipeWire). The module load is cached, the probe is not: PipeWire may come up later. */
+   isAvailable(): boolean;
+-  start(): SystemAudioStart;
++  listSources(): AudioSource[];
++  start(selection?: AudioSelection): SystemAudioStart;
+   stop(): void;
+ }
+ 
+@@ -112,16 +149,41 @@ export function createSystemAudioController(deps: SystemAudioDeps): SystemAudioC
+   return {
+     isAvailable: () => reason() === null,
+ 
+-    start(): SystemAudioStart {
++    listSources(): AudioSource[] {
++      if (reason() !== null) return [];
++      try {
++        bay ??= new (module as PatchBayModule).PatchBay();
++        return playbackNodes(bay.list(), deps.getPids(), deps.executablePath);
++      } catch (err) {
++        log('venmic source listing failed:', err);
++        return [];
++      }
++    },
++
++    start(selection: AudioSelection = { mode: 'all' }): SystemAudioStart {
+       const unavailable = reason();
+       if (unavailable) return { ok: false, reason: unavailable };
+       try {
+         bay ??= new (module as PatchBayModule).PatchBay();
+-        // A second start relinks with the pids as they are now.
++        const current = playbackNodes(bay.list(), deps.getPids(), deps.executablePath);
++        const eligible = selection.mode === 'selected'
++          ? current.filter((source) => selection.sourceIds.includes(source.id))
++          : current;
++        if (selection.mode === 'selected' && eligible.length === 0) {
++          if (linked) bay.unlink();
++          linked = false;
++          return { ok: false, reason: 'no-sources-selected' };
++        }
++        const rules: NodeMatch[] = selection.mode === 'selected'
++          ? eligible.map((source) => ({ 'object.serial': source.id, 'media.class': PLAYBACK_CLASS }))
++          : [{ 'media.class': PLAYBACK_CLASS }];
+         const ok = bay.link({
++          include: rules,
+           exclude: buildExcludeNodes(deps.getPids(), deps.executablePath),
+-          only_speakers: true,
++          only_speakers: false,
++          only_default_speakers: false,
+           ignore_devices: true,
++          mute: false,
+         });
+         linked = ok;
+         if (!ok) return { ok: false, reason: 'link-failed' };

@@ -4,15 +4,37 @@ Módulo NixOS independente para executar [Backspace](https://github.com/thezwiss
 
 ## Cliente desktop
 
-Execute o cliente oficial para Linux x86_64 diretamente com Nix:
+Execute o cliente para Linux x86_64 diretamente com Nix:
 
 ```sh
 nix run github:daviaaze/backspace-nix#backspace
 ```
 
-Sem endereço salvo, o cliente abre o seletor de instância: informe ali o endereço HTTPS do servidor Backspace (por exemplo, `https://chat.seu-dominio.example`). Depois, use **Change Instance** no cliente para trocar de servidor. Opcionalmente, `BACKSPACE_URL` pode definir o endereço ao iniciar; nesse caso tem prioridade sobre a instância salva e o seletor. Esse pacote instala somente o cliente desktop; não ativa nem configura um servidor. O AppImage upstream está fixado na versão `1.11.0` com hash SHA-256.
+Sem endereço salvo, o cliente abre o seletor de instância: informe o endereço HTTPS do servidor Backspace. Use **Change Instance** para trocar de servidor. `BACKSPACE_URL` pode definir o endereço ao iniciar. O pacote é uma variante comunitária do Backspace `1.11.0`, com alterações locais de áudio; não ativa nem configura um servidor.
 
-## Requisitos
+### Compartilhar áudio no Linux/PipeWire
+
+1. Entre na chamada e habilite **System audio** nas opções de compartilhamento.
+2. Ao escolher a tela, o cliente abre **Compartilhar áudio**: marque os streams desejados e pressione **Compartilhar selecionados**, ou escolha **Todo áudio (menos Backspace)**.
+3. Escolha a tela/janela no portal do compositor e inicie a transmissão normalmente.
+
+Comece a reprodução antes de abrir o seletor; **Atualizar** recarrega a lista preservando as marcações disponíveis. Os streams aparecem por aplicativo e nome da reprodução. A seleção vale para os streams atuais, não para todo aplicativo futuro: se o programa reiniciar sua reprodução, pare e selecione novamente. Não há alteração de seleção ao vivo.
+
+A captura aceita reprodução em saídas não padrão e saídas virtuais (por exemplo, roteamento de áudio por efeitos), sem mudar a saída ou o microfone padrão. Os processos do próprio Backspace ficam excluídos. Cancelamento ou falha após selecionar fontes não autoriza fallback para o áudio inteiro do desktop. Áudio de chamadas reproduzido por **outros** aplicativos só fica fora se você não os selecionar.
+
+Verificado: tipos TypeScript, 19 testes de roteamento, build Nix, janela real Electron e captura real do Chromium com dois tons sintéticos em uma saída virtual não padrão. O stream não selecionado ficou mais de 60 dB abaixo do selecionado. Não foi validada uma chamada LiveKit entre dois computadores; uma tentativa WebRTC local não estabeleceu recepção, portanto não é prova de chamada completa.
+
+### Código-fonte e licença do desktop
+
+O módulo NixOS e o empacotamento próprio usam a licença MIT da raiz. O desktop Backspace e as alterações em `desktop/upstream.patch` são **AGPL-3.0-only**, conforme a [licença upstream](https://github.com/TheZwiss/backspace/blob/cfa6ce43306f829f1c273f6402ef625362b793da/LICENSE). O patch inclui os testes e a interface local; `desktop.nix` fixa fonte e AppImage pelos respectivos hashes e reconstrói o ASAR sem recompilar nem substituir os módulos nativos.
+
+Para obter o código-fonte completo com as alterações aplicadas:
+
+```sh
+nix build github:daviaaze/backspace-nix#backspace-source
+```
+
+## Requisitos do servidor
 
 - NixOS x86_64-linux com flakes habilitados e `virtualisation.podman.enable = true`.
 - Dois hostnames DNS distintos apontando para o servidor: um para o app, outro para LiveKit.

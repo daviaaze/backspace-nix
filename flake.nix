@@ -8,20 +8,7 @@
       lib = nixpkgs.lib;
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      backspace = pkgs.appimageTools.wrapType2 {
-        pname = "backspace";
-        version = "1.11.0";
-        src = pkgs.fetchurl {
-          url = "https://github.com/TheZwiss/backspace/releases/download/v1.11.0/Backspace-1.11.0-linux-x86_64.AppImage";
-          hash = "sha256-5ij6Po82PyAFdpbQRYaRpj3FtJR+J+5v0BqnAQjKbAc=";
-        };
-        meta = {
-          description = "Backspace desktop client";
-          homepage = "https://github.com/thezwiss/backspace";
-          platforms = [ "x86_64-linux" ];
-          mainProgram = "backspace";
-        };
-      };
+      backspace = import ./desktop.nix { inherit pkgs; };
       backspaceApp = {
         type = "app";
         program = "${backspace}/bin/backspace";
@@ -67,6 +54,7 @@
       nixosModules.default = import ./module.nix;
       packages.${system} = {
         inherit backspace;
+        backspace-source = backspace.source;
         default = backspace;
       };
       apps.${system} = {
