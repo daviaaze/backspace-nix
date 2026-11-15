@@ -30,7 +30,17 @@ sem rebuild do servidor.
 
 ### Aceleração de vídeo (AMD/NixOS)
 
-O pacote inclui `libva` no ambiente FHS, necessário para o Chromium carregar o driver VA-API do host. No teste com RX 6700 XT, **decodificação por hardware** de H.264, VP9 e AV1 passou de indisponível para disponível no Chromium. A composição por GPU já estava ativa. **Codificação por hardware não foi obtida**: a configuração WebCodecs de H.264/VP9/AV1 continuou indisponível, mesmo com `AcceleratedVideoEncoder`, então a transmissão pode usar codificação por software. Não foi medida uma transmissão LiveKit real.
+O pacote inclui `libva` no ambiente FHS e habilita o encoder VA-API do Chromium no Linux, preservando as features passadas na linha de comando. Na RX 6700 XT, o teste WebRTC sintético H.264 720p30 usou `VaapiVideoEncodeAccelerator` e `VaapiVideoDecoder`, ambos com `powerEfficient=true`: 121 frames codificados e 121 decodificados, sem descarte. Também houve reprodução real em 3840×2160, configurada para 30 FPS, com encode/decode VA-API e zero frames descartados.
+
+Foi necessário corrigir a ordem dos parâmetros H.264: o encoder radeonsi emitia `IDR,SPS,PPS`, causando vídeo preto no receptor. O worker da interface reposiciona os parâmetros para `SPS,PPS,IDR`, sem alterar os outros NALs ou os metadados dos frames. É o problema descrito no [Chromium 574768145](https://issues.chromium.org/issues/574768145). O tratamento cobre os senders H.264 de câmera e compartilhamento e não substitui transforms de criptografia já instalados.
+
+**Atualize primeiro o servidor para `ghcr.io/daviaaze/backspace:streaming-2` e só depois o cliente.** O reparo roda na interface servida pelo servidor; ativar encode GPU com uma interface upstream/antiga sem esse worker pode gerar vídeo preto em AMD. VP9/AV1 continuam sem encode por hardware nessa RX 6700 XT; selecione **H.264** para usar o encoder testado. O teste foi WebRTC local com vídeo sintético, não uma chamada LiveKit entre computadores.
+
+### Resolução 4K e nativa
+
+Novas instâncias permitem 540p, 720p, 1080p, 1440p, 2160p (4K) e **Nativa**; o máximo numérico é 2160. Instâncias existentes mantêm os limites já salvos: um admin deve habilitar 2160p/Nativa em **Configurações da instância → Streaming** e salvar.
+
+Uma resolução numérica é solicitada como ideal, preservando a proporção da fonte; Nativa não impõe dimensões à captura. Não é promessa de resolução transmitida fixa: o modo **Jogo** permite adaptação de resolução/FPS à CPU e à banda; **Texto** prioriza manter a resolução. Fontes menores e limites do encoder continuam podendo produzir dimensões diferentes da opção escolhida.
 
 A captura aceita reprodução em saídas não padrão e saídas virtuais (por exemplo, roteamento de áudio por efeitos), sem mudar a saída ou o microfone padrão. Os processos do próprio Backspace ficam excluídos. Cancelamento ou falha após selecionar fontes não autoriza fallback para o áudio inteiro do desktop. Áudio de chamadas reproduzido por **outros** aplicativos só fica fora se você não os selecionar.
 

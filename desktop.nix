@@ -8,8 +8,8 @@ let
   # Community fork of TheZwiss/backspace v1.11.0 (AGPL-3.0): desktop audio
   # source selection and stream pop-out. Same tree is the server-image source.
   source = pkgs.fetchzip {
-    url = "https://github.com/daviaaze/backspace/archive/2531d815ce842c5e443698c671cd7753b00fca8e.tar.gz";
-    sha256 = "0zbdw79bdj3n00hwjx87shzpgdg2zyrawc6rf3v80fxlwly1dil0";
+    url = "https://github.com/daviaaze/backspace/archive/6b46c3d8c1bdce24016a536788e17f8bf494207f.tar.gz";
+    sha256 = "0n646b2b47ljd0vsdr47i1v4h419jcmwpwilbfnv5x2jcpc7x7nc";
   };
   extracted = pkgs.appimageTools.extract {
     pname = "backspace";
@@ -38,7 +38,7 @@ let
 in
 pkgs.appimageTools.wrapAppImage {
   pname = "backspace";
-  version = "${version}-audio8";
+  version = "${version}-audio9";
   src = extracted;
   # Chromium dlopen()s libva for VA-API. The generic AppImage FHS profile has
   # libdrm/libgbm but not libva; the host provides radeonsi_drv_video.so under

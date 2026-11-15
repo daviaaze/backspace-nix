@@ -73,7 +73,7 @@ in {
 
     virtualisation.oci-containers.backend = "podman";
     virtualisation.oci-containers.containers.backspace = {
-      image = "ghcr.io/thezwiss/backspace:1.11.0";
+      image = "ghcr.io/daviaaze/backspace:streaming-2";
       autoStart = true;
       ports = [ "127.0.0.1:3000:3000" ];
       volumes = [ "/var/lib/backspace/data:/app/data" ];
@@ -84,6 +84,7 @@ in {
         PORT = "3000";
         DOMAIN = cfg.domain;
         TRUSTED_PROXY_HOPS = "1";
+        BACKSPACE_SOURCE_URL = "https://github.com/daviaaze/backspace";
         DB_PATH = "/app/data/backspace.db";
         UPLOAD_DIR = "/app/data/uploads";
         LIVEKIT_URL = "wss://${cfg.livekitDomain}";
