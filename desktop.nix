@@ -38,8 +38,12 @@ let
 in
 pkgs.appimageTools.wrapAppImage {
   pname = "backspace";
-  version = "${version}-audio2";
+  version = "${version}-audio3";
   src = extracted;
+  # Chromium dlopen()s libva for VA-API. The generic AppImage FHS profile has
+  # libdrm/libgbm but not libva; the host provides radeonsi_drv_video.so under
+  # /run/opengl-driver/lib/dri.
+  extraPkgs = pkgs': [ pkgs'.libva ];
   passthru = { inherit source; };
   meta = {
     description = "Backspace desktop client with PipeWire playback source selection";

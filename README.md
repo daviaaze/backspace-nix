@@ -28,6 +28,10 @@ a escolha sem compartilhar áudio. Atualizações desse visual exigem apenas sai
 cliente pela bandeja e executar `nix run --refresh github:daviaaze/backspace-nix#backspace`,
 sem rebuild do servidor.
 
+### Aceleração de vídeo (AMD/NixOS)
+
+O pacote inclui `libva` no ambiente FHS, necessário para o Chromium carregar o driver VA-API do host. No teste com RX 6700 XT, **decodificação por hardware** de H.264, VP9 e AV1 passou de indisponível para disponível no Chromium. A composição por GPU já estava ativa. **Codificação por hardware não foi obtida**: a configuração WebCodecs de H.264/VP9/AV1 continuou indisponível, mesmo com `AcceleratedVideoEncoder`, então a transmissão pode usar codificação por software. Não foi medida uma transmissão LiveKit real.
+
 A captura aceita reprodução em saídas não padrão e saídas virtuais (por exemplo, roteamento de áudio por efeitos), sem mudar a saída ou o microfone padrão. Os processos do próprio Backspace ficam excluídos. Cancelamento ou falha após selecionar fontes não autoriza fallback para o áudio inteiro do desktop. Áudio de chamadas reproduzido por **outros** aplicativos só fica fora se você não os selecionar.
 
 Verificado: tipos TypeScript, 19 testes de roteamento, build Nix, janela real Electron e captura real do Chromium com dois tons sintéticos em uma saída virtual não padrão. O stream não selecionado ficou mais de 60 dB abaixo do selecionado. Não foi validada uma chamada LiveKit entre dois computadores; uma tentativa WebRTC local não estabeleceu recepção, portanto não é prova de chamada completa.
