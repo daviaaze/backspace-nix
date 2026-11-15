@@ -5,14 +5,11 @@ let
     url = "https://github.com/TheZwiss/backspace/releases/download/v${version}/Backspace-${version}-linux-x86_64.AppImage";
     hash = "sha256-5ij6Po82PyAFdpbQRYaRpj3FtJR+J+5v0BqnAQjKbAc=";
   };
-  upstream = pkgs.fetchzip {
-    url = "https://github.com/TheZwiss/backspace/archive/cfa6ce43306f829f1c273f6402ef625362b793da.tar.gz";
-    sha256 = "1rzy5wipxg418sqfqjjznsdnf712a8hd1gxnbp6rnsxia25sjfax";
-  };
-  source = pkgs.applyPatches {
-    name = "backspace-audio-source";
-    src = upstream;
-    patches = [ ./desktop/upstream.patch ];
+  # Community fork of TheZwiss/backspace v1.11.0 (AGPL-3.0): desktop audio
+  # source selection and stream pop-out. Same tree is the server-image source.
+  source = pkgs.fetchzip {
+    url = "https://github.com/daviaaze/backspace/archive/2531d815ce842c5e443698c671cd7753b00fca8e.tar.gz";
+    sha256 = "0zbdw79bdj3n00hwjx87shzpgdg2zyrawc6rf3v80fxlwly1dil0";
   };
   extracted = pkgs.appimageTools.extract {
     pname = "backspace";
@@ -24,6 +21,9 @@ let
       ${pkgs.esbuild}/bin/esbuild \
         ${source}/packages/desktop/src/main.ts \
         ${source}/packages/desktop/src/systemAudio.ts \
+        ${source}/packages/desktop/src/popoutPolicy.ts \
+        ${source}/packages/desktop/src/hyprlandPin.ts \
+        ${source}/packages/desktop/src/preload.ts \
         ${source}/packages/desktop/src/audioSourcePicker.ts \
         ${source}/packages/desktop/src/audioSourcePickerPreload.ts \
         --platform=node --format=cjs --target=node22 \
@@ -38,7 +38,7 @@ let
 in
 pkgs.appimageTools.wrapAppImage {
   pname = "backspace";
-  version = "${version}-audio3";
+  version = "${version}-audio8";
   src = extracted;
   # Chromium dlopen()s libva for VA-API. The generic AppImage FHS profile has
   # libdrm/libgbm but not libva; the host provides radeonsi_drv_video.so under

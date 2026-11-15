@@ -36,9 +36,15 @@ A captura aceita reprodução em saídas não padrão e saídas virtuais (por ex
 
 Verificado: tipos TypeScript, 19 testes de roteamento, build Nix, janela real Electron e captura real do Chromium com dois tons sintéticos em uma saída virtual não padrão. O stream não selecionado ficou mais de 60 dB abaixo do selecionado. Não foi validada uma chamada LiveKit entre dois computadores; uma tentativa WebRTC local não estabeleceu recepção, portanto não é prova de chamada completa.
 
+### Pop-out fixável de stream
+
+No tile de uma stream que você está assistindo há um botão **Destacar**: abre a stream numa janela separada, com botões para fixar e fechar. No Hyprland, **Fixar** deixa a janela flutuante e fixada em todos os workspaces (o Wayland não tem "sempre no topo" padrão, então o cliente usa o `hyprctl`); ao desafixar, uma janela que estava tilada volta a ser tilada. Em outros ambientes o cliente usa `setAlwaysOnTop` do Electron, que o Wayland ignora. A janela de vídeo é silenciosa: o áudio continua vindo da stream no app.
+
+O botão de destacar faz parte da **interface web**, servida pelo seu servidor. Ele só aparece se o servidor usar a imagem do fork (`ghcr.io/daviaaze/backspace`, veja abaixo); o cliente desktop sozinho não o adiciona. Verificado em janela real: criação do pop-out, bloqueio de outras janelas e fixar/desafixar no Hyprland 0.57. A tela do pop-out com vídeo LiveKit real ainda não foi exercitada.
+
 ### Código-fonte e licença do desktop
 
-O módulo NixOS e o empacotamento próprio usam a licença MIT da raiz. O desktop Backspace e as alterações em `desktop/upstream.patch` são **AGPL-3.0-only**, conforme a [licença upstream](https://github.com/TheZwiss/backspace/blob/cfa6ce43306f829f1c273f6402ef625362b793da/LICENSE). O patch inclui os testes e a interface local; `desktop.nix` fixa fonte e AppImage pelos respectivos hashes e reconstrói o ASAR sem recompilar nem substituir os módulos nativos.
+O módulo NixOS e o empacotamento usam a licença MIT da raiz. O desktop e a interface web são **AGPL-3.0-only** e vêm do fork público [`daviaaze/backspace`](https://github.com/daviaaze/backspace) (branch `community/linux-audio-popout`, baseado na `v1.11.0` do upstream), conforme a [licença upstream](https://github.com/TheZwiss/backspace/blob/cfa6ce43306f829f1c273f6402ef625362b793da/LICENSE). `desktop.nix` fixa o commit do fork e o AppImage pelos hashes e reconstrói o ASAR sem substituir os módulos nativos. Para um servidor com a interface modificada, a oferta de código-fonte (AGPL §13) do próprio app deve apontar para o fork: defina `BACKSPACE_SOURCE_URL`.
 
 Para obter o código-fonte completo com as alterações aplicadas:
 
