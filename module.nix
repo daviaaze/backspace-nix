@@ -73,7 +73,7 @@ in {
 
     virtualisation.oci-containers.backend = "podman";
     virtualisation.oci-containers.containers.backspace = {
-      image = "ghcr.io/daviaaze/backspace:streaming-2";
+      image = "ghcr.io/daviaaze/backspace:streaming-3";
       autoStart = true;
       ports = [ "127.0.0.1:3000:3000" ];
       volumes = [ "/var/lib/backspace/data:/app/data" ];

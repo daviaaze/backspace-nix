@@ -32,23 +32,23 @@ a escolha sem compartilhar áudio. Atualizações desse visual exigem apenas sai
 cliente pela bandeja e executar `nix run --refresh github:daviaaze/backspace-nix#backspace`,
 sem rebuild do servidor.
 
-### Aceleração de vídeo (AMD/NixOS)
-
 O pacote inclui `libva` no ambiente FHS e habilita o encoder VA-API do Chromium no Linux, preservando as features passadas na linha de comando. Na RX 6700 XT, o teste WebRTC sintético H.264 720p30 usou `VaapiVideoEncodeAccelerator` e `VaapiVideoDecoder`, ambos com `powerEfficient=true`: 121 frames codificados e 121 decodificados, sem descarte. Também houve reprodução real em 3840×2160, configurada para 30 FPS, com encode/decode VA-API e zero frames descartados.
 
-Foi necessário corrigir a ordem dos parâmetros H.264: o encoder radeonsi emitia `IDR,SPS,PPS`, causando vídeo preto no receptor. O worker da interface reposiciona os parâmetros para `SPS,PPS,IDR`, sem alterar os outros NALs ou os metadados dos frames. É o problema descrito no [Chromium 574768145](https://issues.chromium.org/issues/574768145). O tratamento cobre os senders H.264 de câmera e compartilhamento e não substitui transforms de criptografia já instalados.
+Foi necessário corrigir a ordem dos parâmetros H.264: o encoder radeonsi emitia `IDR,SPS,PPS`, causando vídeo preto no receptor. O worker da interface reposiciona os parâmetros para `SPS,PPS,IDR`, sem alterar os outros NALs ou os metadados dos frames. Ele agora se conecta ao evento LiveKit `LocalSenderCreated`, antes da negociação, em vez de esperar por `RoomEvent.LocalTrackPublished`; o teste isolado do SDK decodificou 74 frames com o hook antecipado e zero com o tardio. O tratamento cobre os senders H.264 de câmera e compartilhamento e não substitui transforms de criptografia já instalados.
 
-**Atualize primeiro o servidor para `ghcr.io/daviaaze/backspace:streaming-2` e só depois o cliente.** O reparo roda na interface servida pelo servidor; ativar encode GPU com uma interface upstream/antiga sem esse worker pode gerar vídeo preto em AMD. VP9/AV1 continuam sem encode por hardware nessa RX 6700 XT; selecione **H.264** para usar o encoder testado. O teste foi WebRTC local com vídeo sintético, não uma chamada LiveKit entre computadores.
+O áudio da tela agora publica a faixa capturada inicialmente. A captura nativa PipeWire pode ser adicionada depois que o portal Wayland retorna a faixa de vídeo. A escolha manual de fontes não está sujeita ao prazo de 10 segundos reservado ao loopback silencioso; cancelar aborta a aquisição de áudio, sem fallback para todo o áudio dos aplicativos/sistema.
+
+**Atualize primeiro o servidor para `ghcr.io/daviaaze/backspace:streaming-3`, depois o cliente desktop na revisão `audio11`.** O reparo roda na interface servida pelo servidor; ativar encode GPU com uma interface upstream/antiga sem esse worker pode gerar vídeo preto em AMD. VP9/AV1 continuam sem encode por hardware nessa RX 6700 XT; selecione **H.264** para usar o encoder testado. O teste foi com SDK e servidor LiveKit isolados, não uma chamada entre dois computadores externos nem teste da captura de áudio do usuário.
 
 ### Resolução 4K e nativa
 
-Novas instâncias permitem 540p, 720p, 1080p, 1440p, 2160p (4K) e **Nativa**; o máximo numérico é 2160. Instâncias existentes mantêm os limites já salvos: um admin deve habilitar 2160p/Nativa em **Configurações da instância → Streaming** e salvar.
+Novas instâncias permitem 540p, 720p, 1080p, 1440p, 2160p (4K) e **Nativa**; o máximo numérico é 2160. Instâncias existentes mantêm os limites já salvos: um admin deve habilitar 2160p/Nativa em **Configurações da instância → Streaming** e salvar. Esta atualização não altera essa política manual.
 
 Uma resolução numérica é solicitada como ideal, preservando a proporção da fonte; Nativa não impõe dimensões à captura. Não é promessa de resolução transmitida fixa: o modo **Jogo** permite adaptação de resolução/FPS à CPU e à banda; **Texto** prioriza manter a resolução. Fontes menores e limites do encoder continuam podendo produzir dimensões diferentes da opção escolhida.
 
 A captura aceita reprodução em saídas não padrão e saídas virtuais (por exemplo, roteamento de áudio por efeitos), sem mudar a saída ou o microfone padrão. Os processos do próprio Backspace ficam excluídos. Cancelamento ou falha após selecionar fontes não autoriza fallback para o áudio inteiro do desktop. Áudio de chamadas reproduzido por **outros** aplicativos só fica fora se você não os selecionar.
 
-Verificado: tipos TypeScript, 19 testes de roteamento, build Nix, janela real Electron e captura real do Chromium com dois tons sintéticos em uma saída virtual não padrão. O stream não selecionado ficou mais de 60 dB abaixo do selecionado. Não foi validada uma chamada LiveKit entre dois computadores; uma tentativa WebRTC local não estabeleceu recepção, portanto não é prova de chamada completa.
+Verificado nesta correção: tipagem, lint, 53 testes focados de mídia, cancelamento do seletor nativo real e vídeo H.264/áudio sintéticos recebidos por um servidor LiveKit isolado. A suíte global local não é declarada verde: runners Cloudflare de módulos não alterados falharam por timeout. Não foi validada a captura de áudio do usuário nem uma chamada entre dois computadores externos.
 
 ### Pop-out fixável de stream
 
