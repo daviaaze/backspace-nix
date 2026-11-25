@@ -8,8 +8,8 @@ let
   # Community fork of TheZwiss/backspace v1.11.0 (AGPL-3.0): desktop audio
   # source selection and stream pop-out. Same tree is the server-image source.
   source = pkgs.fetchzip {
-    url = "https://github.com/daviaaze/backspace/archive/bd0890850ff82777205c9040dbec7883048eae40.tar.gz";
-    sha256 = "0zy8bryc011r65vw0mq1swgv5w8qhl7b2wlw01wrzcaysjwnjcn6";
+    url = "https://github.com/daviaaze/backspace/archive/e7237410edd42843bf611bfece3c9b7f0697e0ab.tar.gz";
+    sha256 = "0gwb5qj7yhap8w5zdc4m4fp22wsg6gbfkcjb0x0ilkmlcr7qyy2s";
   };
   extracted = pkgs.appimageTools.extract {
     pname = "backspace";
