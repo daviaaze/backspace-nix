@@ -1,15 +1,14 @@
 { pkgs }:
 let
-  version = "1.11.0";
+  version = "1.12.0";
   appimage = pkgs.fetchurl {
     url = "https://github.com/TheZwiss/backspace/releases/download/v${version}/Backspace-${version}-linux-x86_64.AppImage";
-    hash = "sha256-5ij6Po82PyAFdpbQRYaRpj3FtJR+J+5v0BqnAQjKbAc=";
+    hash = "sha256-87EYi7NwDImQzUsQFJ4u/e28qUoTUWIPFRjDQSbLwno=";
   };
-  # Community fork of TheZwiss/backspace v1.11.0 (AGPL-3.0): desktop audio
-  # source selection and stream pop-out. Same tree is the server-image source.
+  # Community desktop fork: PipeWire audio source selection and stream pop-out.
   source = pkgs.fetchzip {
-    url = "https://github.com/daviaaze/backspace/archive/e7237410edd42843bf611bfece3c9b7f0697e0ab.tar.gz";
-    sha256 = "0gwb5qj7yhap8w5zdc4m4fp22wsg6gbfkcjb0x0ilkmlcr7qyy2s";
+    url = "https://github.com/daviaaze/backspace/archive/c4abeb4d5040a7db1423ace278586eb8f4bc9be0.tar.gz";
+    hash = "sha256-DA/T7OVNZ95huZkJt814Ck5Sor65sfvyzhtCYTkhdO8=";
   };
   extracted = pkgs.appimageTools.extract {
     pname = "backspace";
@@ -44,13 +43,16 @@ let
     terminal = false;
     startupNotify = true;
     startupWMClass = "io.github.TheZwiss.backspace";
-    categories = [ "Network" "InstantMessaging" ];
+    categories = [
+      "Network"
+      "InstantMessaging"
+    ];
     mimeTypes = [ "x-scheme-handler/backspace" ];
   };
 in
 pkgs.appimageTools.wrapAppImage {
   pname = "backspace";
-  version = "${version}-audio11";
+  version = "${version}-audio12";
   src = extracted;
   # Chromium dlopen()s libva for VA-API. The generic AppImage FHS profile has
   # libdrm/libgbm but not libva; the host provides radeonsi_drv_video.so under
